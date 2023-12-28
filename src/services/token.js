@@ -23,10 +23,10 @@ const verificarTokenValido = async (token) => {
   }
 };
 
-const encode = async (_id) => {
+const encode = async (_id,email,nombreCompleto) => {
 
   const token = jwt.sign(
-    { _id},
+    { _id,email,nombreCompleto},
     secretKey,
     { expiresIn: duracionToken }
   );

@@ -5,7 +5,7 @@ import bcrypt from "bcrypt";
 //Función para iniciar sesión de un usuario
 const login = async (req, res) => {
     try {
-        const { email, clave } = req.body;
+        const { email, password } = req.body;
         // Buscar usuario por email
         const findUser = await Usuario.findOne({ email: email });
         // Si el usuario no existe
@@ -15,7 +15,7 @@ const login = async (req, res) => {
             });
         }
         // Si el usuario existe, verificar la contraseña
-        const passwordIsValid = bcrypt.compareSync(clave, findUser.clave);
+        const passwordIsValid = bcrypt.compareSync(password, findUser.clave);
         // Si la contraseña no es válida
         if (!passwordIsValid) {
             return res.status(400).json({
@@ -23,7 +23,7 @@ const login = async (req, res) => {
             });
         }
         // Si la contraseña es válida, generar token
-        const token = await tokenService.encode(findUser._id);
+        const token = await tokenService.encode(findUser._id, findUser.email, findUser.nombreCompleto);
         // Devolver el token
         res.status(200).json({
             message: "Inicio de sesión correcto",
