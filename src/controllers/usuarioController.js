@@ -39,7 +39,7 @@ const login = async (req, res) => {
 //Función para registrar un usuario
 const registrarUsuario = async (req, res) => {
   try {
-    const { nombreCompleto, rut, email, clave, rol } = req.body;
+    const { nombreCompleto, rut, email, clave, rol, empresa } = req.body;
     //Crear un nuevo usuario
     const usuario = new Usuario({
       nombreCompleto,
@@ -47,6 +47,7 @@ const registrarUsuario = async (req, res) => {
       email,
       clave: bcrypt.hashSync(clave, 10),
       rol,
+      empresa,
     });
     
     //Verificar si el email ya existe en la base de datos
@@ -65,8 +66,17 @@ const registrarUsuario = async (req, res) => {
       data: usuarioNuevo,
     });
   } catch (error) {
+    if (error.name === 'ValidationError') {
+      // Manejar errores de validación de Mongoose
+      const validationErrors = Object.values(error.errors).map(({ message }) => message);
+      return res.status(400).json({
+        message: "Error de validación al crear el usuario",
+        errors: validationErrors,
+      });
+    }
     res.status(500).json({
       message: "Error al crear el usuario",
+      data: {error},
     });
   }
 };

@@ -2,8 +2,13 @@ import mongoose from 'mongoose';
 const Schema = mongoose.Schema;
 
 let rolesValidos = {
-    values: ["ADMIN", "USER", "ADMINAPP"],
-    message: '{VALUE} no es un role válido'
+    values: ["ADMIN", "USER", "ADMINAPP", "CONDUCTOR"],
+    message: '{VALUE} no es un rol válido'
+}
+
+let empresasValidas = {
+    values: ["TIR", "TRN"],
+    message: '{VALUE} no es una empresa válida'
 }
 
 // Función para validar el formato del RUT
@@ -57,6 +62,12 @@ const UsuarioSchema = new Schema({
         required: [true, "El rol es necesario"],
         enum: rolesValidos,
     },
+    empresa: {
+    	type: String,
+    	required: [true, "La empresa es necesaria"],
+    	enum: empresasValidas,
+    	
+    }
 });
 
 const usuario = mongoose.model("Usuario", UsuarioSchema);
