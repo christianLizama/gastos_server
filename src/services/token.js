@@ -8,7 +8,6 @@ const verificarTokenValido = async (token) => {
   try {
     const { _id } = jwt.verify(token, secretKey);
     const user = await Usuario.findOne({ _id });
-
     if (user) {
       return user; // Devuelve el usuario si el token es válido
     } else {
@@ -24,9 +23,8 @@ const verificarTokenValido = async (token) => {
 };
 
 const encode = async (_id,email,nombreCompleto) => {
-
   const token = jwt.sign(
-    { _id,email,nombreCompleto},
+    { _id, email, nombreCompleto },
     secretKey,
     { expiresIn: duracionToken }
   );
@@ -37,16 +35,19 @@ const decode = async (token) => {
   try {
     const { _id } = jwt.verify(token, secretKey);
     const user = await Usuario.findOne({ _id });
-
     if (user) {
-      return user;
+      return { user:user, message: 'Token válido'};
     } else {
-      return false;
+      return { message: 'Usuario no encontrado' }; // Devuelve un mensaje específico
     }
   } catch (e) {
-    const newToken = await verificarTokenValido(token);
-    return newToken;
+    if (e.name === 'TokenExpiredError') {
+      return { message: 'Token expirado' }; // Devuelve un mensaje específico para token expirado
+    } else {
+      return { message: 'Token inválido' }; // Devuelve un mensaje específico para token inválido
+    }
   }
 };
 
 export default { verificarTokenValido, encode, decode };
+

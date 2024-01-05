@@ -16,5 +16,10 @@ router.post("/registrar", usuario.registrarUsuario);
 router.put("/actualizarUsuarioPorId/:id", usuario.actualizarUsuarioPorId);
 router.delete("/eliminarUsuarioPorId/:id", usuario.eliminarUsuarioPorId);
 router.post("/login", usuario.login);
+router.post("/validarToken", usuario.validarToken);
+router.post("/cargarUsuarios", usuario.cargarUsuarios);
+
+router.get("/obtenerConductores", authMiddleware.verifyAdminOrAdminApp, usuario.obtenerConductores);
+router.get("/obtenerConductoresPorEmpresa/:empresa", authMiddleware.verifyAdminOrAdminApp, usuario.obtenerConductoresPorEmpresa);
 
 export default router;

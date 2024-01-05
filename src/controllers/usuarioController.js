@@ -1,41 +1,46 @@
 import Usuario from "../models/Usuario.js";
 import tokenService from "../services/token.js";
 import bcrypt from "bcrypt";
+import axios from "axios";
 
 //Función para iniciar sesión de un usuario
 const login = async (req, res) => {
-    try {
-        const { email, password } = req.body;
-        // Buscar usuario por email
-        const findUser = await Usuario.findOne({ email: email });
-        // Si el usuario no existe
-        if (!findUser) {
-            return res.status(400).json({
-                message: "Usuario o contraseña incorrectos",
-            });
-        }
-        // Si el usuario existe, verificar la contraseña
-        const passwordIsValid = bcrypt.compareSync(password, findUser.clave);
-        // Si la contraseña no es válida
-        if (!passwordIsValid) {
-            return res.status(400).json({
-                message: "Usuario o contraseña incorrectos",
-            });
-        }
-        // Si la contraseña es válida, generar token
-        const token = await tokenService.encode(findUser._id, findUser.email, findUser.nombreCompleto);
-        // Devolver el token
-        res.status(200).json({
-            message: "Inicio de sesión correcto",
-            token: token,
-        });
-    } catch (error) {
-        res.status(500).json({
-            message: "Error al iniciar sesión",
-        });
+  try {
+    const { email, password } = req.body;
+    // Buscar usuario por email
+    const findUser = await Usuario.findOne({ email: email });
+    // Si el usuario no existe
+    if (!findUser) {
+      return res.status(400).json({
+        message: "Usuario o contraseña incorrectos",
+      });
     }
+    // Si el usuario existe, verificar la contraseña
+    const passwordIsValid = bcrypt.compareSync(password, findUser.clave);
+    // Si la contraseña no es válida
+    if (!passwordIsValid) {
+      return res.status(400).json({
+        message: "Usuario o contraseña incorrectos",
+      });
+    }
+    // Si la contraseña es válida, generar token
+    const token = await tokenService.encode(
+      findUser._id,
+      findUser.email,
+      findUser.nombreCompleto
+    );
+    // Devolver el token
+    res.status(200).json({
+      message: "Inicio de sesión correcto",
+      token: token,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Error al iniciar sesión",
+    });
+  }
 };
-        
+
 //Función para registrar un usuario
 const registrarUsuario = async (req, res) => {
   try {
@@ -49,7 +54,7 @@ const registrarUsuario = async (req, res) => {
       rol,
       empresa,
     });
-    
+
     //Verificar si el email ya existe en la base de datos
     const findUser = await Usuario.findOne({ email: email });
 
@@ -66,9 +71,11 @@ const registrarUsuario = async (req, res) => {
       data: usuarioNuevo,
     });
   } catch (error) {
-    if (error.name === 'ValidationError') {
+    if (error.name === "ValidationError") {
       // Manejar errores de validación de Mongoose
-      const validationErrors = Object.values(error.errors).map(({ message }) => message);
+      const validationErrors = Object.values(error.errors).map(
+        ({ message }) => message
+      );
       return res.status(400).json({
         message: "Error de validación al crear el usuario",
         errors: validationErrors,
@@ -76,7 +83,7 @@ const registrarUsuario = async (req, res) => {
     }
     res.status(500).json({
       message: "Error al crear el usuario",
-      data: {error},
+      data: { error },
     });
   }
 };
@@ -96,6 +103,39 @@ const obtenerUsuarios = async (req, res) => {
     });
   }
 };
+
+//Función para obtener todos los conductores
+const obtenerConductores = async (req, res) => {
+  try {
+    const conductores = await Usuario.find({ rol: "CONDUCTOR" }).sort({ nombreCompleto: 1 });
+    res.status(200).json({
+      message: "Conductores obtenidos correctamente",
+      data: conductores,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Error al obtener los conductores",
+      data: {},
+    });
+  }
+};
+
+//Obtener conductores por empresa
+const obtenerConductoresPorEmpresa = async (req, res) => {
+  try {
+    const { empresa } = req.params;
+    const conductores = await Usuario.find({ rol: "CONDUCTOR", empresa: empresa }).sort({ nombreCompleto: 1 });
+    res.status(200).json({
+      message: "Conductores obtenidos correctamente",
+      data: conductores,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Error al obtener los conductores",
+      data: {},
+    });
+  }
+}
 
 //Función para obtener un usuario por su id
 const obtenerUsuarioPorId = async (req, res) => {
@@ -142,7 +182,6 @@ const actualizarUsuarioPorId = async (req, res) => {
   }
 };
 
-
 //Función para eliminar un usuario por su id
 const eliminarUsuarioPorId = async (req, res) => {
   try {
@@ -160,6 +199,102 @@ const eliminarUsuarioPorId = async (req, res) => {
   }
 };
 
+//Función para validar si el token aún es válido
+const validarToken = async (req, res) => {
+  try {
+    const { token } = req.body;
+    const response = await tokenService.decode(token);
+
+    if (response.message === "Token expirado") {
+      return res.status(200).json({
+        message: "Token expirado",
+        data: false,
+      });
+    } else if (response.message === "Token inválido") {
+      return res.status(200).json({
+        message: "Token inválido",
+        data: false,
+      });
+    } else if (response.message === "Usuario no encontrado") {
+      return res.status(200).json({
+        message: "Usuario no encontrado",
+        data: false,
+      });
+    }
+    res.status(200).json({
+      message: "Token válido",
+      data: true,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Token inválido",
+      data: false,
+    });
+  }
+};
+
+//Función para cargar usuarios desde una API externa
+const cargarUsuarios = async (req, res) => {
+  try {
+    const { usuario, contrasena } = req.body;
+
+    // Autenticación para obtener el token
+    const urlDestino = process.env.URL_API_USERS;
+    const urlAutenticar = urlDestino + "Autenticar";
+    const bodyAutenticar = { usuario, contrasena };
+    const responseAutenticar = await axios.post(urlAutenticar, bodyAutenticar);
+    const token = responseAutenticar.data.token;
+
+    // Llamada a la API externa con el token obtenido
+    const url = urlDestino + "auditeris/getemployee";
+    const empresaRut = process.env.RUT_TIR;
+    const headers = {
+      Authorization: token,
+      "Content-Type": "application/json",
+    };
+    const bodyAPI = {
+      rut_empresa: empresaRut,
+      movimientos_personal: "S",
+    };
+    const responseAPI = await axios.get(url, {
+      headers: headers,
+      data: bodyAPI,
+    });
+
+    // Filtrar usuarios por cargo "Conductor" y obtener email, nombre completo y rut
+    const usuarios = responseAPI.data.result.filter((user) =>
+      user.contrato.cargo.toLowerCase().includes("conductor")
+    );
+    const conductoresInfo = usuarios.map((user) => ({
+      nombreCompleto: user.ficha.nombrecompleto,
+      rut: user.ficha.rut,
+      email: user.ficha.email,
+      rol: "CONDUCTOR",
+      empresa: "TRN",
+      clave: bcrypt.hashSync(user.ficha.rut, 10),
+    }));
+
+    const emails = conductoresInfo.map((conductor) => conductor.email);
+
+
+    // // Guardar conductores en la base de datos
+    // const conductoresAgregados = await Promise.all(
+    //   conductoresInfo.map(async (conductor) => {
+    //     const newConductor = new Usuario(conductor);
+    //     await newConductor.save();
+    //     return newConductor;
+    //   })
+    // );
+
+    // const emailsConductores = conductoresAgregados.map((conductor) => conductor.email);
+    // const cantidadConductores = conductoresAgregados.length;
+
+    res.status(200).json({ emails: conductoresInfo, cantidadAgregados: 1 , message: "Conductores agregados correctamente"});
+  } catch (error) {
+    console.error("Error:", error.message);
+    res.status(500).json({ error: "Error en la solicitud" });
+  }
+};
 
 export default {
   login,
@@ -168,4 +303,8 @@ export default {
   obtenerUsuarioPorId,
   actualizarUsuarioPorId,
   eliminarUsuarioPorId,
+  validarToken,
+  cargarUsuarios,
+  obtenerConductores,
+  obtenerConductoresPorEmpresa
 };
