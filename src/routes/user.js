@@ -21,5 +21,6 @@ router.post("/cargarUsuarios", usuario.cargarUsuarios);
 
 router.get("/obtenerConductores", authMiddleware.verifyAdminOrAdminApp, usuario.obtenerConductores);
 router.get("/obtenerConductoresPorEmpresa/:empresa", authMiddleware.verifyAdminOrAdminApp, usuario.obtenerConductoresPorEmpresa);
+router.post("/agregarEventos",authMiddleware.verifyAdminOrAdminApp, usuario.agregarEventos);
 
 export default router;

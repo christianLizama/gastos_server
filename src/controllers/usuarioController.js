@@ -1,4 +1,5 @@
 import Usuario from "../models/Usuario.js";
+import Evento from "../models/Evento.js";
 import tokenService from "../services/token.js";
 import bcrypt from "bcrypt";
 import axios from "axios";
@@ -107,14 +108,54 @@ const obtenerUsuarios = async (req, res) => {
 //Función para obtener todos los conductores
 const obtenerConductores = async (req, res) => {
   try {
+    const { mes } = req.query; // Supongamos que se envía el mes en el query
+    // Validar que el mes esté en un formato válido (por ejemplo, 01 para enero)
+    // Asumiendo que mes es un número entre 1 y 12
+    const anioActual = new Date().getFullYear();
+    const fechaInicio = new Date(anioActual, mes , 1);
+    const fechaFin = new Date(anioActual, mes+1, 0);
+
     const conductores = await Usuario.find({ rol: "CONDUCTOR" }).sort({ nombreCompleto: 1 });
+
+    const eventosAgregados = await Evento.find({
+      user: { $in: conductores.map((conductor) => conductor._id) },
+      fecha: { $gte: fechaInicio, $lte: fechaFin },
+    });
+
+    const eventosPorUsuario = {};
+
+    eventosAgregados.forEach((evento) => {
+      if (!eventosPorUsuario[evento.user]) {
+        eventosPorUsuario[evento.user] = {};
+      }
+
+      const dia = evento.fecha.getDate();
+      let valor = "";
+      if (evento.nombre === "ausente") {
+        valor = "A";
+      } else if (evento.nombre === "descanso") {
+        valor = "D";
+      }
+
+      eventosPorUsuario[evento.user][`dia${dia}`] = valor;
+    });
+
+    // Formatear los resultados para incluir los datos de usuario
+    const usuariosConEventos = conductores.map((conductor) => {
+      const eventosUsuario = eventosPorUsuario[conductor._id] || {};
+      return {
+        ...conductor.toObject(), // Convertir a objeto para modificar propiedades
+        ...eventosUsuario,
+      };
+    });
+
     res.status(200).json({
-      message: "Conductores obtenidos correctamente",
-      data: conductores,
+      message: "Usuarios con eventos obtenidos correctamente",
+      data: usuariosConEventos,
     });
   } catch (error) {
     res.status(500).json({
-      message: "Error al obtener los conductores",
+      message: "Error al obtener los usuarios con eventos",
       data: {},
     });
   }
@@ -296,6 +337,58 @@ const cargarUsuarios = async (req, res) => {
   }
 };
 
+const agregarEventos = async (req, res) => {
+  try {
+    const { eventos } = req.body;
+
+    // Guardar eventos en la base de datos
+    const eventosAgregados = await Promise.all(
+      eventos.map(async (evento) => {
+        const newEvento = new Evento(evento);
+        return await newEvento.save(); // Guardar el evento y devolverlo
+      })
+    );
+
+    // Organizar los eventos por usuario
+    const eventosPorUsuario = {};
+
+    eventosAgregados.forEach((evento) => {
+      // Si el usuario aún no tiene eventos, crear un arreglo vacío para él
+      if (!eventosPorUsuario[evento.user]) {
+        eventosPorUsuario[evento.user] = {
+          usuario: evento.user, // Puedes agregar más detalles del usuario aquí si es necesario
+          eventos: [],
+        };
+      }
+      const atributo= "dia"+evento.fecha.getDate();
+      let valor = "";
+      if(evento.nombre==="ausente"){
+        valor = "A"; 
+      }
+      else if(evento.nombre==="descanso"){
+        valor = "D";
+      }
+
+      const event = {
+        nombre: evento.nombre,
+        descripcion: evento.descripcion,
+        fecha: evento.fecha,
+        [atributo]: valor,
+      };
+
+      eventosPorUsuario[evento.user].eventos.push(event);
+    });
+
+    const resultadoFinal = Object.values(eventosPorUsuario);
+
+    res.status(200).json(resultadoFinal); // Devolver los eventos organizados por usuario
+  } catch (error) {
+    console.error("Error:", error.message);
+    res.status(500).json({ error: "Error al procesar la solicitud" });
+  }
+};
+
+
 export default {
   login,
   registrarUsuario,
@@ -306,5 +399,6 @@ export default {
   validarToken,
   cargarUsuarios,
   obtenerConductores,
-  obtenerConductoresPorEmpresa
+  obtenerConductoresPorEmpresa,
+  agregarEventos
 };
