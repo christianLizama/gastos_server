@@ -8,6 +8,7 @@ import mongoose from 'mongoose';
 // Rutas
 import router from './routes/index.js';
 import usuario from './routes/user.js';
+import evento from './routes/event.js';
 import e from "express";
 
 const uri = process.env.MONGO_URI;
@@ -30,6 +31,7 @@ app.use(express.json());
 // Luego, configura tus rutas
 app.use('/', router);
 app.use('/usuario', usuario);
+app.use('/evento', evento);
 
 const appPort = process.env.PORT_SERVER || 3030
 

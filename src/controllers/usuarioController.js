@@ -143,10 +143,20 @@ const obtenerConductores = async (req, res) => {
     // Formatear los resultados para incluir los datos de usuario
     const usuariosConEventos = conductores.map((conductor) => {
       const eventosUsuario = eventosPorUsuario[conductor._id] || {};
+      const conductorObjeto = {
+        nombreCompleto: conductor.nombreCompleto,
+        rut: conductor.rut,
+        email: conductor.email,
+        rol: conductor.rol,
+        empresa: conductor.empresa,
+        _id: conductor._id,
+      }
+
       return {
-        ...conductor.toObject(), // Convertir a objeto para modificar propiedades
+        ...conductorObjeto, // Convertir a objeto para modificar propiedades
         ...eventosUsuario,
       };
+      
     });
 
     res.status(200).json({
