@@ -28,7 +28,8 @@ const login = async (req, res) => {
     const token = await tokenService.encode(
       findUser._id,
       findUser.email,
-      findUser.nombreCompleto
+      findUser.nombreCompleto,
+      findUser.rol
     );
     // Devolver el token
     res.status(200).json({
@@ -105,24 +106,96 @@ const obtenerUsuarios = async (req, res) => {
   }
 };
 
+// Función para convertir fecha manualmente de "dd/mm/yyyy" a "yyyy-mm-dd"
+
+function convertirFecha(fecha) {
+  const partesFecha = fecha.split("/");
+  if (partesFecha.length !== 3) {
+    return null; // La fecha no tiene tres partes separadas por "/"
+  }
+  const dia = partesFecha[0];
+  const mes = partesFecha[1];
+  const annio = partesFecha[2];
+
+  const fechaObjeto = new Date(annio, mes - 1, dia);
+
+  // Verificar si la fecha es válida
+  if (isNaN(fechaObjeto.getTime())) {
+    return null; // La fecha no es válida
+  }
+
+  return fechaObjeto;
+}
+
 //Función para obtener todos los conductores
 const obtenerConductores = async (req, res) => {
   try {
-    const { mes } = req.query; // Supongamos que se envía el mes en el query
-    // Validar que el mes esté en un formato válido (por ejemplo, 01 para enero)
-    // Asumiendo que mes es un número entre 1 y 12
-    const anioActual = new Date().getFullYear();
-    const fechaInicio = new Date(anioActual, mes , 1);
-    const fechaFin = new Date(anioActual, mes+1, 0);
+    const { mes, annio, empresa} = req.query;
+    let fechaInicio;
+    let fechaFin;
+    const year = parseInt(annio, 10); // Convirtiendo strings a enteros
+    const month = parseInt(mes, 10);
 
-    const conductores = await Usuario.find({ rol: "CONDUCTOR" }).sort({ nombreCompleto: 1 });
+    fechaInicio = new Date(year, month, 1);
+    fechaFin = new Date(year, month + 1, 0);
 
+    const conductores = await Usuario.find({ rol: "CONDUCTOR", empresa:empresa }).sort({
+      nombreCompleto: 1,
+    });
     const eventosAgregados = await Evento.find({
       user: { $in: conductores.map((conductor) => conductor._id) },
       fecha: { $gte: fechaInicio, $lte: fechaFin },
     });
 
     const eventosPorUsuario = {};
+
+    // Obtener eventos entre fechaInicio y fechaFin para cada conductor
+    for (const conductor of conductores) {
+      eventosPorUsuario[conductor._id] = {};
+
+      // Convertir fechaIngreso y fechaTermino a objetos Date
+      const fechaIngreso = convertirFecha(conductor.fechaIngreso);
+      const fechaTermino = convertirFecha(conductor.fechaTermino);
+      const fechaInicioMes = fechaInicio;
+      const fechaFinMes = fechaFin;
+
+      // Verificar si la fecha de ingreso está dentro del mes o es posterior a la fecha de inicio
+      if (fechaIngreso >= fechaInicioMes && fechaIngreso <= fechaFinMes) {
+        let fechaActual = new Date(fechaInicioMes);
+        while (fechaActual < fechaIngreso) {
+          const diaActual = fechaActual.getDate();
+          eventosPorUsuario[conductor._id][`dia${diaActual}`] = "NC";
+          fechaActual.setDate(fechaActual.getDate() + 1);
+        }
+      }
+      // Si la fecha de ingreso es anterior a la fecha de inicio
+      else if (fechaIngreso > fechaInicioMes) {
+        let fechaActual = new Date(fechaInicioMes);
+        while (fechaActual <= fechaFinMes) {
+          const diaActual = fechaActual.getDate();
+          eventosPorUsuario[conductor._id][`dia${diaActual}`] = "NC";
+          fechaActual.setDate(fechaActual.getDate() + 1);
+        }
+      }
+
+      // Verificar si la fecha de termino está dentro del mes o es anterior a la fecha de inicio
+      if (fechaTermino >= fechaInicioMes && fechaTermino <= fechaFinMes) {
+        let fechaActual = new Date(fechaTermino);
+        fechaActual.setDate(fechaActual.getDate() + 1); // Avanzar un día
+        while (fechaActual <= fechaFinMes) {
+          const diaActual = fechaActual.getDate();
+          eventosPorUsuario[conductor._id][`dia${diaActual}`] = "TC";
+          fechaActual.setDate(fechaActual.getDate() + 1);
+        }
+      } else if (fechaTermino < fechaInicioMes) {
+        let fechaActual = new Date(fechaInicioMes);
+        while (fechaActual <= fechaFinMes) {
+          const diaActual = fechaActual.getDate();
+          eventosPorUsuario[conductor._id][`dia${diaActual}`] = "TC";
+          fechaActual.setDate(fechaActual.getDate() + 1);
+        }
+      }
+    }
 
     eventosAgregados.forEach((evento) => {
       if (!eventosPorUsuario[evento.user]) {
@@ -150,13 +223,12 @@ const obtenerConductores = async (req, res) => {
         rol: conductor.rol,
         empresa: conductor.empresa,
         _id: conductor._id,
-      }
+      };
 
       return {
         ...conductorObjeto, // Convertir a objeto para modificar propiedades
         ...eventosUsuario,
       };
-      
     });
 
     res.status(200).json({
@@ -175,7 +247,10 @@ const obtenerConductores = async (req, res) => {
 const obtenerConductoresPorEmpresa = async (req, res) => {
   try {
     const { empresa } = req.params;
-    const conductores = await Usuario.find({ rol: "CONDUCTOR", empresa: empresa }).sort({ nombreCompleto: 1 });
+    const conductores = await Usuario.find({
+      rol: "CONDUCTOR",
+      empresa: empresa,
+    }).sort({ nombreCompleto: 1 });
     res.status(200).json({
       message: "Conductores obtenidos correctamente",
       data: conductores,
@@ -186,7 +261,7 @@ const obtenerConductoresPorEmpresa = async (req, res) => {
       data: {},
     });
   }
-}
+};
 
 //Función para obtener un usuario por su id
 const obtenerUsuarioPorId = async (req, res) => {
@@ -298,7 +373,7 @@ const cargarUsuarios = async (req, res) => {
 
     // Llamada a la API externa con el token obtenido
     const url = urlDestino + "auditeris/getemployee";
-    const empresaRut = process.env.RUT_TIR;
+    const empresaRut = process.env.RUT_TRN;
     const headers = {
       Authorization: token,
       "Content-Type": "application/json",
@@ -323,24 +398,53 @@ const cargarUsuarios = async (req, res) => {
       rol: "CONDUCTOR",
       empresa: "TRN",
       clave: bcrypt.hashSync(user.ficha.rut, 10),
+      fechaIngreso: user.contrato.fechaingreso,
+      fechaTermino: user.contrato.fechatermino,
     }));
 
     const emails = conductoresInfo.map((conductor) => conductor.email);
 
+    // Verificar correos electrónicos duplicados
+    const uniqueEmails = new Set(emails);
+    if (uniqueEmails.size !== emails.length) {
+      const conductoresRepetidos = [];
+      const emailsRepetidos = [];
 
-    // // Guardar conductores en la base de datos
-    // const conductoresAgregados = await Promise.all(
-    //   conductoresInfo.map(async (conductor) => {
-    //     const newConductor = new Usuario(conductor);
-    //     await newConductor.save();
-    //     return newConductor;
-    //   })
-    // );
+      // Encontrar conductores con correos electrónicos duplicados
+      emails.forEach((email, index) => {
+        if (
+          emails.indexOf(email) !== index &&
+          !conductoresRepetidos.includes(email)
+        ) {
+          conductoresRepetidos.push(email);
+          emailsRepetidos.push(emails[index]);
+        }
+      });
+
+      // Reasignar correos electrónicos duplicados
+      emailsRepetidos.forEach((email, index) => {
+        const indexToChange = emails.indexOf(email);
+        conductoresInfo[indexToChange].email = `${email}_${index + 1}`; // Cambiar el correo electrónico agregando un número al final
+      });
+    }
+
+    // Guardar conductores en la base de datos
+    const conductoresAgregados = await Promise.all(
+      conductoresInfo.map(async (conductor) => {
+        const newConductor = new Usuario(conductor);
+        await newConductor.save();
+        return newConductor;
+      })
+    );
 
     // const emailsConductores = conductoresAgregados.map((conductor) => conductor.email);
-    // const cantidadConductores = conductoresAgregados.length;
+    const cantidadConductores = conductoresAgregados.length;
 
-    res.status(200).json({ emails: conductoresInfo, cantidadAgregados: 1 , message: "Conductores agregados correctamente"});
+    res.status(200).json({
+      emails: conductoresInfo,
+      cantidadAgregados: cantidadConductores,
+      message: "Conductores agregados correctamente",
+    });
   } catch (error) {
     console.error("Error:", error.message);
     res.status(500).json({ error: "Error en la solicitud" });
@@ -349,15 +453,75 @@ const cargarUsuarios = async (req, res) => {
 
 const agregarEventos = async (req, res) => {
   try {
-    const { eventos } = req.body;
+    const { eventos, fechas } = req.body;
 
-    // Guardar eventos en la base de datos
-    const eventosAgregados = await Promise.all(
-      eventos.map(async (evento) => {
-        const newEvento = new Evento(evento);
-        return await newEvento.save(); // Guardar el evento y devolverlo
-      })
-    );
+    const eventosNoAgregados = [];
+    const eventosAgregados = [];
+
+    for (const evento of eventos) {
+      const usuario = await Usuario.findById(evento.user);
+      const fechaEvento = new Date(evento.fecha);
+      const fechaIngreso = convertirFecha(usuario.fechaIngreso);
+      const fechaTermino = convertirFecha(usuario.fechaTermino);
+
+      // Verificar si la fecha de ingreso del usuario es mayor a la fecha de inicio del mes
+      if (fechaEvento < fechaIngreso) {
+        const user = {
+          nombreCompleto: usuario.nombreCompleto,
+          rut: usuario.rut,
+          email: usuario.email,
+        }
+
+        eventosNoAgregados.push({
+          user,
+          evento,
+          motivo:
+            "El usuario aún no se encontraba trabajando en la empresa en esta fecha",
+        });
+        continue; // Pasar al siguiente evento
+      }
+
+      // Verificar si la fecha de término del usuario es menor a la fecha de inicio del mes
+      if (fechaEvento > fechaTermino) {
+        const user = {
+          nombreCompleto: usuario.nombreCompleto,
+          rut: usuario.rut,
+          email: usuario.email,
+        }
+        eventosNoAgregados.push({
+          user,
+          evento,
+          motivo:
+            "El usuario ya no se encuentra trabajando en la empresa en esta fecha",
+        });
+        continue; // Pasar al siguiente evento
+      }
+
+      // Verificar si ya existe un evento para esa fecha para el usuario
+      const eventoExistente = await Evento.findOne({
+        user: evento.user,
+        fecha: fechaEvento,
+      });
+
+      if (eventoExistente) {
+        const user = {
+          nombreCompleto: usuario.nombreCompleto,
+          rut: usuario.rut,
+          email: usuario.email,
+        }
+        eventosNoAgregados.push({
+          user,
+          evento,
+          motivo: "Ya existe un evento para esta fecha y usuario",
+        });
+        continue; // Pasar al siguiente evento
+      }
+
+      //Si no hay restricciones, agregar el evento
+      const newEvento = new Evento(evento);
+      const eventoGuardado = await newEvento.save();
+      eventosAgregados.push(eventoGuardado);
+    }
 
     // Organizar los eventos por usuario
     const eventosPorUsuario = {};
@@ -370,12 +534,11 @@ const agregarEventos = async (req, res) => {
           eventos: [],
         };
       }
-      const atributo= "dia"+evento.fecha.getDate();
+      const atributo = "dia" + evento.fecha.getDate();
       let valor = "";
-      if(evento.nombre==="ausente"){
-        valor = "A"; 
-      }
-      else if(evento.nombre==="descanso"){
+      if (evento.nombre === "ausente") {
+        valor = "A";
+      } else if (evento.nombre === "descanso") {
         valor = "D";
       }
 
@@ -391,13 +554,12 @@ const agregarEventos = async (req, res) => {
 
     const resultadoFinal = Object.values(eventosPorUsuario);
 
-    res.status(200).json(resultadoFinal); // Devolver los eventos organizados por usuario
+    res.status(200).json({eventos: resultadoFinal, eventosNoAgregados: eventosNoAgregados}); // Devolver los eventos organizados por usuario
   } catch (error) {
     console.error("Error:", error.message);
     res.status(500).json({ error: "Error al procesar la solicitud" });
   }
 };
-
 
 export default {
   login,
@@ -410,5 +572,5 @@ export default {
   cargarUsuarios,
   obtenerConductores,
   obtenerConductoresPorEmpresa,
-  agregarEventos
+  agregarEventos,
 };

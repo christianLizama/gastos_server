@@ -22,9 +22,9 @@ const verificarTokenValido = async (token) => {
   }
 };
 
-const encode = async (_id,email,nombreCompleto) => {
+const encode = async (_id,email,nombreCompleto,rol) => {
   const token = jwt.sign(
-    { _id, email, nombreCompleto },
+    { _id, email, nombreCompleto, rol },
     secretKey,
     { expiresIn: duracionToken }
   );

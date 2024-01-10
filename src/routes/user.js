@@ -19,8 +19,8 @@ router.post("/login", usuario.login);
 router.post("/validarToken", usuario.validarToken);
 router.post("/cargarUsuarios", usuario.cargarUsuarios);
 
-router.get("/obtenerConductores", authMiddleware.verifyAdminOrAdminApp, usuario.obtenerConductores);
-router.get("/obtenerConductoresPorEmpresa/:empresa", authMiddleware.verifyAdminOrAdminApp, usuario.obtenerConductoresPorEmpresa);
+router.get("/obtenerConductores", authMiddleware.verifyAdminOrAdminAppOrLector, usuario.obtenerConductores);
+router.get("/obtenerConductoresPorEmpresa/:empresa", authMiddleware.verifyAdminOrAdminAppOrLector, usuario.obtenerConductoresPorEmpresa);
 router.post("/agregarEventos",authMiddleware.verifyAdminOrAdminApp, usuario.agregarEventos);
 
 export default router;
