@@ -362,8 +362,8 @@ const validarToken = async (req, res) => {
 //Función para cargar usuarios desde una API externa
 const cargarUsuarios = async (req, res) => {
   try {
-    const { usuario, contrasena } = req.body;
-
+    const { usuario, contrasena, empresa } = req.body;
+    console.log("Cargando usuarios de api externa")
     // Autenticación para obtener el token
     const urlDestino = process.env.URL_API_USERS;
     const urlAutenticar = urlDestino + "Autenticar";
@@ -373,7 +373,13 @@ const cargarUsuarios = async (req, res) => {
 
     // Llamada a la API externa con el token obtenido
     const url = urlDestino + "auditeris/getemployee";
-    const empresaRut = process.env.RUT_TRN;
+    let empresaRut = "";
+    if (empresa === "TRN") {
+      empresaRut = process.env.RUT_TRN;
+    } else if (empresa === "TIR") {
+      empresaRut = process.env.RUT_TIR;
+    }
+
     const headers = {
       Authorization: token,
       "Content-Type": "application/json",
@@ -396,37 +402,40 @@ const cargarUsuarios = async (req, res) => {
       rut: user.ficha.rut,
       email: user.ficha.email,
       rol: "CONDUCTOR",
-      empresa: "TRN",
+      empresa: empresa,
       clave: bcrypt.hashSync(user.ficha.rut, 10),
       fechaIngreso: user.contrato.fechaingreso,
       fechaTermino: user.contrato.fechatermino,
     }));
 
-    const emails = conductoresInfo.map((conductor) => conductor.email);
+    // Verificar correos electrónicos duplicados en la API
+    const apiEmails = conductoresInfo.map((conductor) => conductor.email);
+    const duplicateApiEmails = apiEmails.filter((email, index) => apiEmails.indexOf(email) !== index);
 
-    // Verificar correos electrónicos duplicados
-    const uniqueEmails = new Set(emails);
-    if (uniqueEmails.size !== emails.length) {
-      const conductoresRepetidos = [];
-      const emailsRepetidos = [];
+    // Verificar correos electrónicos duplicados en la base de datos
+    const existingEmails = await Usuario.find({ email: { $in: apiEmails } });
+    const dbEmails = existingEmails.map((user) => user.email);
+    const duplicateDbEmails = dbEmails.filter((email, index) => dbEmails.indexOf(email) !== index);
 
-      // Encontrar conductores con correos electrónicos duplicados
-      emails.forEach((email, index) => {
-        if (
-          emails.indexOf(email) !== index &&
-          !conductoresRepetidos.includes(email)
-        ) {
-          conductoresRepetidos.push(email);
-          emailsRepetidos.push(emails[index]);
+    // Manejar correos electrónicos duplicados
+    const allDuplicateEmails = [...duplicateApiEmails, ...duplicateDbEmails];
+    const updatedEmails = new Set();
+
+    conductoresInfo.forEach((conductor) => {
+      if (allDuplicateEmails.includes(conductor.email)) {
+        let updatedEmail = conductor.email;
+        let index = 1;
+
+        // Agregar un número al final hasta que sea único
+        while (updatedEmails.has(updatedEmail)) {
+          updatedEmail = `${conductor.email}_${index}`;
+          index++;
         }
-      });
 
-      // Reasignar correos electrónicos duplicados
-      emailsRepetidos.forEach((email, index) => {
-        const indexToChange = emails.indexOf(email);
-        conductoresInfo[indexToChange].email = `${email}_${index + 1}`; // Cambiar el correo electrónico agregando un número al final
-      });
-    }
+        updatedEmails.add(updatedEmail);
+        conductor.email = updatedEmail;
+      }
+    });
 
     // Guardar conductores en la base de datos
     const conductoresAgregados = await Promise.all(
@@ -437,7 +446,6 @@ const cargarUsuarios = async (req, res) => {
       })
     );
 
-    // const emailsConductores = conductoresAgregados.map((conductor) => conductor.email);
     const cantidadConductores = conductoresAgregados.length;
 
     res.status(200).json({
@@ -450,6 +458,7 @@ const cargarUsuarios = async (req, res) => {
     res.status(500).json({ error: "Error en la solicitud" });
   }
 };
+
 
 const agregarEventos = async (req, res) => {
   try {
