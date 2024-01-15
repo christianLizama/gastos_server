@@ -32,11 +32,16 @@ const verifyGeneralAdmin = async (req, res, next) => {
       message: "Debe proporcionar el token",
     });
   }
-
   const response = await tokenService.decode(req.headers.token);
-
-  if (response.rol === "ADMINAPP") {
-    next(); // Si es un ADMINAPP, pasa al siguiente middleware
+  if (response.message === "Token válido") {
+    if (response.user.rol == "ADMINAPP") {
+      next();
+    }
+    else {
+      return res.status(403).send({
+        message: "No autorizado",
+      });
+    }
   } else if (response.message === "Token inválido") {
     return res.status(403).send({
       message: "Token inválido",

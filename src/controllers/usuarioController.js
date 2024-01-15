@@ -3,6 +3,7 @@ import Evento from "../models/Evento.js";
 import tokenService from "../services/token.js";
 import bcrypt from "bcrypt";
 import axios from "axios";
+import removeAccents from "remove-accents";
 
 //Función para iniciar sesión de un usuario
 const login = async (req, res) => {
@@ -11,7 +12,7 @@ const login = async (req, res) => {
     //Quitar espacios en blanco al inicio y al final
     const emailTrim = email.trim();
     const passwordTrim = password.trim();
-    
+
     // Buscar usuario por email
     const findUser = await Usuario.findOne({ email: emailTrim });
     // Si el usuario no existe
@@ -97,12 +98,48 @@ const registrarUsuario = async (req, res) => {
 //Función para obtener todos los usuarios
 const obtenerUsuarios = async (req, res) => {
   try {
-    const usuarios = await Usuario.find();
+    const searchQuery = {}; // Objeto de consulta vacío por defecto
+
+    if (req.query.search) {
+      // Quitamos los acentos de la búsqueda y la convertimos a minúsculas
+      const normalizedSearchTerm = removeAccents(
+        req.query.search
+      ).toLowerCase();
+      // Si se proporciona un término de búsqueda en la consulta, agregamos criterios de búsqueda
+      searchQuery.$or = [
+        { nombreCompleto: { $regex: normalizedSearchTerm, $options: "i" } }, // Búsqueda insensible a mayúsculas y minúsculas en el campo "value"
+        // Agregar más campos de búsqueda si es necesario
+      ];
+    }
+
+    const page = req.query.page || 1;
+    const limit = req.query.limit || 10;
+
+    const sortOptions = { option: -1, nombreCompleto: 1 }; // Ordenar en orden ascendente (alfabético) por el campo "value"
+
+    const options = {
+      page,
+      limit,
+      sort: sortOptions,
+    };
+
+    // Obtener los usuarios de los roles "ADMIN", "LECTOR", "CONDUCTOR" con paginación
+    const roles = ["ADMIN", "LECTOR", "CONDUCTOR"];
+    const usuarios = await Usuario.paginate(
+      { rol: { $in: roles }, ...searchQuery },
+      options
+    );
+
     res.status(200).json({
       message: "Usuarios obtenidos correctamente",
-      data: usuarios,
+      data: usuarios.docs,
+      totalPages: usuarios.totalPages,
+      currentPage: usuarios.page,
+      totalItems: usuarios.totalDocs,
     });
+
   } catch (error) {
+    console.error(error);
     res.status(500).json({
       message: "Error al obtener los usuarios",
       data: {},
@@ -134,7 +171,7 @@ function convertirFecha(fecha) {
 //Función para obtener todos los conductores
 const obtenerConductores = async (req, res) => {
   try {
-    const { mes, annio, empresa} = req.query;
+    const { mes, annio, empresa } = req.query;
     let fechaInicio;
     let fechaFin;
     const year = parseInt(annio, 10); // Convirtiendo strings a enteros
@@ -143,7 +180,10 @@ const obtenerConductores = async (req, res) => {
     fechaInicio = new Date(year, month, 1);
     fechaFin = new Date(year, month + 1, 0);
 
-    const conductores = await Usuario.find({ rol: "CONDUCTOR", empresa:empresa }).sort({
+    const conductores = await Usuario.find({
+      rol: "CONDUCTOR",
+      empresa: empresa,
+    }).sort({
       nombreCompleto: 1,
     });
     const eventosAgregados = await Evento.find({
@@ -212,14 +252,11 @@ const obtenerConductores = async (req, res) => {
         valor = "A";
       } else if (evento.nombre === "descanso") {
         valor = "D";
-      }
-      else if (evento.nombre === "vacacion"){
+      } else if (evento.nombre === "vacacion") {
         valor = "V";
-      }
-      else if (evento.nombre === "licencia"){
+      } else if (evento.nombre === "licencia") {
         valor = "L";
       }
-
 
       eventosPorUsuario[evento.user][`dia${dia}`] = valor;
     });
@@ -374,7 +411,7 @@ const validarToken = async (req, res) => {
 const cargarUsuarios = async (req, res) => {
   try {
     const { usuario, contrasena, empresa } = req.body;
-    console.log("Cargando usuarios de api externa")
+    console.log("Cargando usuarios de api externa");
     // Autenticación para obtener el token
     const urlDestino = process.env.URL_API_USERS;
     const urlAutenticar = urlDestino + "Autenticar";
@@ -421,12 +458,16 @@ const cargarUsuarios = async (req, res) => {
 
     // Verificar correos electrónicos duplicados en la API
     const apiEmails = conductoresInfo.map((conductor) => conductor.email);
-    const duplicateApiEmails = apiEmails.filter((email, index) => apiEmails.indexOf(email) !== index);
+    const duplicateApiEmails = apiEmails.filter(
+      (email, index) => apiEmails.indexOf(email) !== index
+    );
 
     // Verificar correos electrónicos duplicados en la base de datos
     const existingEmails = await Usuario.find({ email: { $in: apiEmails } });
     const dbEmails = existingEmails.map((user) => user.email);
-    const duplicateDbEmails = dbEmails.filter((email, index) => dbEmails.indexOf(email) !== index);
+    const duplicateDbEmails = dbEmails.filter(
+      (email, index) => dbEmails.indexOf(email) !== index
+    );
 
     // Manejar correos electrónicos duplicados
     const allDuplicateEmails = [...duplicateApiEmails, ...duplicateDbEmails];
@@ -470,7 +511,6 @@ const cargarUsuarios = async (req, res) => {
   }
 };
 
-
 const agregarEventos = async (req, res) => {
   try {
     const { eventos, fechas } = req.body;
@@ -489,7 +529,7 @@ const agregarEventos = async (req, res) => {
           nombreCompleto: usuario.nombreCompleto,
           rut: usuario.rut,
           email: usuario.email,
-        }
+        };
 
         eventosNoAgregados.push({
           user,
@@ -506,7 +546,7 @@ const agregarEventos = async (req, res) => {
           nombreCompleto: usuario.nombreCompleto,
           rut: usuario.rut,
           email: usuario.email,
-        }
+        };
         eventosNoAgregados.push({
           user,
           evento,
@@ -527,7 +567,7 @@ const agregarEventos = async (req, res) => {
           nombreCompleto: usuario.nombreCompleto,
           rut: usuario.rut,
           email: usuario.email,
-        }
+        };
         eventosNoAgregados.push({
           user,
           evento,
@@ -557,14 +597,11 @@ const agregarEventos = async (req, res) => {
       let valor = "";
       if (evento.nombre === "ausentismo") {
         valor = "A";
-      } 
-      else if (evento.nombre === "descanso") {
+      } else if (evento.nombre === "descanso") {
         valor = "D";
-      }
-      else if (evento.nombre === "vacacion"){
+      } else if (evento.nombre === "vacacion") {
         valor = "V";
-      }
-      else if (evento.nombre === "licencia"){
+      } else if (evento.nombre === "licencia") {
         valor = "L";
       }
 
@@ -580,7 +617,12 @@ const agregarEventos = async (req, res) => {
 
     const resultadoFinal = Object.values(eventosPorUsuario);
 
-    res.status(200).json({eventos: resultadoFinal, eventosNoAgregados: eventosNoAgregados}); // Devolver los eventos organizados por usuario
+    res
+      .status(200)
+      .json({
+        eventos: resultadoFinal,
+        eventosNoAgregados: eventosNoAgregados,
+      }); // Devolver los eventos organizados por usuario
   } catch (error) {
     console.error("Error:", error.message);
     res.status(500).json({ error: "Error al procesar la solicitud" });

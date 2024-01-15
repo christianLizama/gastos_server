@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 const Schema = mongoose.Schema;
+import paginate from 'mongoose-paginate-v2';
 
 let rolesValidos = {
   values: ["ADMIN", "LECTOR", "ADMINAPP", "CONDUCTOR"],
@@ -76,6 +77,9 @@ const UsuarioSchema = new Schema({
   },
 });
 
+UsuarioSchema.plugin(paginate);
+
 const usuario = mongoose.model("Usuario", UsuarioSchema);
+usuario.paginate().then({});
 
 export default usuario;
