@@ -14,7 +14,7 @@ router.get("/obtenerUsuarios", authMiddleware.verifyGeneralAdmin, usuario.obtene
 router.get("/obtenerUsuarioPorId/:id", usuario.obtenerUsuarioPorId);
 router.post("/registrar", usuario.registrarUsuario);
 router.put("/actualizarUsuarioPorId/:id", usuario.actualizarUsuarioPorId);
-router.delete("/eliminarUsuarioPorId/:id", usuario.eliminarUsuarioPorId);
+router.delete("/eliminarUsuarioPorId/:id", authMiddleware.verifyGeneralAdmin ,usuario.eliminarUsuarioPorId);
 router.post("/login", usuario.login);
 router.post("/validarToken", usuario.validarToken);
 router.post("/cargarUsuarios", usuario.cargarUsuarios);

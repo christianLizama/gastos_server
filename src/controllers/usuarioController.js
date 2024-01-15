@@ -99,7 +99,6 @@ const registrarUsuario = async (req, res) => {
 const obtenerUsuarios = async (req, res) => {
   try {
     const searchQuery = {}; // Objeto de consulta vacío por defecto
-
     if (req.query.search) {
       // Quitamos los acentos de la búsqueda y la convertimos a minúsculas
       const normalizedSearchTerm = removeAccents(
@@ -108,14 +107,19 @@ const obtenerUsuarios = async (req, res) => {
       // Si se proporciona un término de búsqueda en la consulta, agregamos criterios de búsqueda
       searchQuery.$or = [
         { nombreCompleto: { $regex: normalizedSearchTerm, $options: "i" } }, // Búsqueda insensible a mayúsculas y minúsculas en el campo "value"
-        // Agregar más campos de búsqueda si es necesario
+        { rut: { $regex: normalizedSearchTerm, $options: "i" } },
       ];
     }
 
     const page = req.query.page || 1;
     const limit = req.query.limit || 10;
 
-    const sortOptions = { option: -1, nombreCompleto: 1 }; // Ordenar en orden ascendente (alfabético) por el campo "value"
+    const sortOptions = {};
+    if (req.query.sortBy) {
+      sortOptions[req.query.sortBy] = req.query.sortDesc === "true" ? -1 : 1;
+    } 
+
+    sortOptions.nombreCompleto = 1; // Ordenar por nombreCompleto de forma predeterminada
 
     const options = {
       page,
