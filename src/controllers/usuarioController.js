@@ -8,8 +8,12 @@ import axios from "axios";
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
+    //Quitar espacios en blanco al inicio y al final
+    const emailTrim = email.trim();
+    const passwordTrim = password.trim();
+    
     // Buscar usuario por email
-    const findUser = await Usuario.findOne({ email: email });
+    const findUser = await Usuario.findOne({ email: emailTrim });
     // Si el usuario no existe
     if (!findUser) {
       return res.status(400).json({
@@ -17,7 +21,7 @@ const login = async (req, res) => {
       });
     }
     // Si el usuario existe, verificar la contraseña
-    const passwordIsValid = bcrypt.compareSync(password, findUser.clave);
+    const passwordIsValid = bcrypt.compareSync(passwordTrim, findUser.clave);
     // Si la contraseña no es válida
     if (!passwordIsValid) {
       return res.status(400).json({
@@ -204,11 +208,18 @@ const obtenerConductores = async (req, res) => {
 
       const dia = evento.fecha.getDate();
       let valor = "";
-      if (evento.nombre === "ausente") {
+      if (evento.nombre === "ausentismo") {
         valor = "A";
       } else if (evento.nombre === "descanso") {
         valor = "D";
       }
+      else if (evento.nombre === "vacacion"){
+        valor = "V";
+      }
+      else if (evento.nombre === "licencia"){
+        valor = "L";
+      }
+
 
       eventosPorUsuario[evento.user][`dia${dia}`] = valor;
     });
@@ -463,7 +474,6 @@ const cargarUsuarios = async (req, res) => {
 const agregarEventos = async (req, res) => {
   try {
     const { eventos, fechas } = req.body;
-
     const eventosNoAgregados = [];
     const eventosAgregados = [];
 
@@ -545,15 +555,22 @@ const agregarEventos = async (req, res) => {
       }
       const atributo = "dia" + evento.fecha.getDate();
       let valor = "";
-      if (evento.nombre === "ausente") {
+      if (evento.nombre === "ausentismo") {
         valor = "A";
-      } else if (evento.nombre === "descanso") {
+      } 
+      else if (evento.nombre === "descanso") {
         valor = "D";
+      }
+      else if (evento.nombre === "vacacion"){
+        valor = "V";
+      }
+      else if (evento.nombre === "licencia"){
+        valor = "L";
       }
 
       const event = {
         nombre: evento.nombre,
-        descripcion: evento.descripcion,
+        tipo: evento.tipo,
         fecha: evento.fecha,
         [atributo]: valor,
       };

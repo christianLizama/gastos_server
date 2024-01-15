@@ -6,10 +6,6 @@ const EventoSchema = new Schema({
         type: String,
         required: [true, 'El nombre es necesario'],
     },
-    descripcion:{
-        type: String,
-        required: [true, 'La descripcion es necesaria'],
-    },
     fecha: { 
         type: Date, 
         required: [true, "La fecha es necesaria"],
@@ -18,6 +14,10 @@ const EventoSchema = new Schema({
         type: Schema.Types.ObjectId,
         ref: 'Usuario',
         required: [true, "El usuario es necesario"],
+    },
+    tipo: {
+        type: String,
+        required: [true, "El tipo de evento es necesario"],
     },
 });
 
