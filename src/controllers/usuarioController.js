@@ -136,7 +136,7 @@ const obtenerUsuarios = async (req, res) => {
     //Si el rol del usuario es "ADMINAPP"
     if (user.rol === "ADMINAPP") {
        // Obtener los usuarios de los roles "ADMIN", "LECTOR", "CONDUCTOR", "TRNEDITOR" "TIREDITOR" con paginación
-      roles = ["ADMIN","ADMINTRN","ADMINTIR","LECTOR","LECTORTRN", "LECTORTIR", "ADMINAPP", "EDITOR","TRNEDITOR","TIREDITOR"];
+      roles = ["ADMIN","ADMINTRN","ADMINTIR","LECTOR","LECTORTRN", "LECTORTIR", "EDITOR","TRNEDITOR","TIREDITOR"];
       empresasPermitidas = ["TRN", "TIR"];
     } 
     //Si el rol del usuario es "ADMINTRN"
