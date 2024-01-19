@@ -11,7 +11,7 @@ router.get("/", function (req, res, next) {
 //Rutas para eventos
 router.post(
   "/eliminarEvento",
-  authMiddleware.verifyAdminOrAdminApp,
+  authMiddleware.verfyAdminsOrEditers,
   evento.eliminarEvento
 );
 
