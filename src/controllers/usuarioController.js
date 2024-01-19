@@ -141,6 +141,7 @@ const obtenerUsuarios = async (req, res) => {
     } 
     //Si el rol del usuario es "ADMINTRN"
     else if (user.rol === "ADMINTRN") {
+      console.log("ADMINTRN");
       roles = ["LECTORTRN", "TRNEDITOR"]; 
       empresasPermitidas = ["TRN"];
     }  
