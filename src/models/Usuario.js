@@ -3,7 +3,7 @@ const Schema = mongoose.Schema;
 import paginate from 'mongoose-paginate-v2';
 
 let rolesValidos = {
-  values: ["ADMIN", "LECTOR", "ADMINAPP", "CONDUCTOR"],
+  values: ["ADMIN","ADMINTRN","ADMINTIR","LECTOR","LECTORTRN", "LECTORTIR", "ADMINAPP", "CONDUCTOR", "TRNEDITOR","TIREDITOR", "EDITOR"],
   message: "{VALUE} no es un rol válido",
 };
 

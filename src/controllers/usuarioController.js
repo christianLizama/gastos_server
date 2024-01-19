@@ -4,6 +4,7 @@ import tokenService from "../services/token.js";
 import bcrypt from "bcrypt";
 import axios from "axios";
 import removeAccents from "remove-accents";
+import auth from "../middlewares/auth.js";
 
 //Función para iniciar sesión de un usuario
 const login = async (req, res) => {
@@ -95,7 +96,7 @@ const registrarUsuario = async (req, res) => {
   }
 };
 
-//Función para obtener todos los usuarios
+//Función para obtener todos los usuarios por los administradores
 const obtenerUsuarios = async (req, res) => {
   try {
     const searchQuery = {}; // Objeto de consulta vacío por defecto
@@ -117,7 +118,7 @@ const obtenerUsuarios = async (req, res) => {
     const sortOptions = {};
     if (req.query.sortBy) {
       sortOptions[req.query.sortBy] = req.query.sortDesc === "true" ? -1 : 1;
-    } 
+    }
 
     sortOptions.nombreCompleto = 1; // Ordenar por nombreCompleto de forma predeterminada
 
@@ -126,9 +127,42 @@ const obtenerUsuarios = async (req, res) => {
       limit,
       sort: sortOptions,
     };
+    //Decodificamos el token para ver el rol del usuario que está haciendo la petición
+    const tokenDecodificado = await tokenService.decode(req.headers.token);
+    const user = tokenDecodificado.user;
 
-    // Obtener los usuarios de los roles "ADMIN", "LECTOR", "CONDUCTOR" con paginación
-    const roles = ["ADMIN", "LECTOR", "CONDUCTOR"];
+    let empresasPermitidas = [];
+    let roles = []
+    //Si el rol del usuario es "ADMINAPP"
+    if (user.rol === "ADMINAPP") {
+       // Obtener los usuarios de los roles "ADMIN", "LECTOR", "CONDUCTOR", "TRNEDITOR" "TIREDITOR" con paginación
+      roles = ["ADMIN","ADMINTRN","ADMINTIR","LECTOR","LECTORTRN", "LECTORTIR", "ADMINAPP", "EDITOR","TRNEDITOR","TIREDITOR"];
+      empresasPermitidas = ["TRN", "TIR"];
+    } 
+    //Si el rol del usuario es "ADMINTRN"
+    else if (user.rol === "ADMINTRN") {
+      roles = ["LECTORTRN", "TRNEDITOR"]; 
+      empresasPermitidas = ["TRN"];
+    }  
+
+    //Si el rol del usuario es "ADMINTIR"
+    else if (user.rol === "ADMINTIR") {
+      roles = ["LECTORTIR", "TIREDITOR"];
+      empresasPermitidas = ["TIR"];
+    }
+
+    //Si el rol del usuario es ADMIN
+    else if (user.rol === "ADMIN") {
+      roles = ["ADMINTRN","ADMINTIR","LECTOR","LECTORTRN", "LECTORTIR", "EDITOR","TRNEDITOR","TIREDITOR"];
+      empresasPermitidas = ["TRN", "TIR"];
+    }
+
+    // Agregar el filtro de empresa a la consulta
+    if (empresasPermitidas.length > 0) {
+      searchQuery.empresa = { $in: empresasPermitidas };
+    }
+
+
     const usuarios = await Usuario.paginate(
       { rol: { $in: roles }, ...searchQuery },
       options
@@ -140,8 +174,8 @@ const obtenerUsuarios = async (req, res) => {
       totalPages: usuarios.totalPages,
       currentPage: usuarios.page,
       totalItems: usuarios.totalDocs,
+      roles: roles,
     });
-
   } catch (error) {
     console.error(error);
     res.status(500).json({
@@ -260,6 +294,8 @@ const obtenerConductores = async (req, res) => {
         valor = "V";
       } else if (evento.nombre === "licencia") {
         valor = "L";
+      } else if (evento.nombre === "mediotrabajo"){
+        valor = "MT";
       }
 
       eventosPorUsuario[evento.user][`dia${dia}`] = valor;
@@ -336,22 +372,73 @@ const obtenerUsuarioPorId = async (req, res) => {
 const actualizarUsuarioPorId = async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombreCompleto, rut, email, clave, rol } = req.body;
-    const usuario = await Usuario.findByIdAndUpdate(
-      id,
-      {
-        nombreCompleto,
-        rut,
-        email,
-        clave: bcrypt.hashSync(clave, 10),
-        rol,
-      },
-      { new: true }
-    );
-    res.status(200).json({
-      message: "Usuario actualizado correctamente",
-      data: usuario,
-    });
+    const {
+      nombreCompleto,
+      rut,
+      email,
+      clave,
+      rol,
+      empresa,
+      cambioClave,
+      newClave,
+    } = req.body;
+
+    //Verificar que los campos obligatorios no estén vacíos
+    if (!nombreCompleto || !rut || !email || !rol || !empresa) {
+      return res.status(400).json({
+        message: "Todos los campos son obligatorios",
+        data: {},
+      });
+    }
+
+    // Verificar si el email ya existe en la base de datos
+    const usuarioExistente = await Usuario.findOne({ email });
+
+    // Si el email ya existe y pertenece a otro usuario
+    if (usuarioExistente && usuarioExistente._id.toString() !== id) {
+      // Si el email ya existe y no pertenece al usuario que se está actualizando
+      return res.status(400).json({
+        message: "El email ya está registrado por otro usuario",
+        data: {},
+      });
+    }
+
+    // Si es con cambio de clave
+    if (cambioClave) {
+      const emailEnMinuscula = email.toLowerCase();
+      const usuario = await Usuario.findByIdAndUpdate(
+        id,
+        {
+          nombreCompleto: nombreCompleto,
+          rut: rut,
+          email: emailEnMinuscula,
+          clave: bcrypt.hashSync(newClave, 10),
+          rol: rol,
+          empresa: empresa,
+        },
+        { new: true }
+      );
+      res.status(200).json({
+        message: "Usuario actualizado correctamente",
+        data: usuario,
+      });
+    } else {
+      const usuario = await Usuario.findByIdAndUpdate(
+        id,
+        {
+          nombreCompleto: nombreCompleto,
+          rut: rut,
+          email: email,
+          clave: bcrypt.hashSync(clave, 10),
+          rol: rol,
+        },
+        { new: true }
+      );
+      res.status(200).json({
+        message: "Usuario actualizado correctamente",
+        data: usuario,
+      });
+    }
   } catch (error) {
     res.status(500).json({
       message: "Error al actualizar el usuario",
@@ -607,8 +694,10 @@ const agregarEventos = async (req, res) => {
         valor = "V";
       } else if (evento.nombre === "licencia") {
         valor = "L";
+      } else if (evento.nombre === "mediotrabajo"){
+        valor = "MT";
       }
-
+      
       const event = {
         nombre: evento.nombre,
         tipo: evento.tipo,
@@ -621,12 +710,10 @@ const agregarEventos = async (req, res) => {
 
     const resultadoFinal = Object.values(eventosPorUsuario);
 
-    res
-      .status(200)
-      .json({
-        eventos: resultadoFinal,
-        eventosNoAgregados: eventosNoAgregados,
-      }); // Devolver los eventos organizados por usuario
+    res.status(200).json({
+      eventos: resultadoFinal,
+      eventosNoAgregados: eventosNoAgregados,
+    }); // Devolver los eventos organizados por usuario
   } catch (error) {
     console.error("Error:", error.message);
     res.status(500).json({ error: "Error al procesar la solicitud" });

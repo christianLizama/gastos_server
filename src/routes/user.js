@@ -10,17 +10,17 @@ router.get("/", function (req, res, next) {
 });
 
 //Rutas para usuarios
-router.get("/obtenerUsuarios", authMiddleware.verifyGeneralAdmin, usuario.obtenerUsuarios);
+router.get("/obtenerUsuarios", authMiddleware.verifyAdmins, usuario.obtenerUsuarios);
 router.get("/obtenerUsuarioPorId/:id", usuario.obtenerUsuarioPorId);
 router.post("/registrar", usuario.registrarUsuario);
-router.put("/actualizarUsuarioPorId/:id", usuario.actualizarUsuarioPorId);
-router.delete("/eliminarUsuarioPorId/:id", authMiddleware.verifyGeneralAdmin ,usuario.eliminarUsuarioPorId);
+router.put("/actualizarUsuarioPorId/:id", authMiddleware.verifyAdmins,usuario.actualizarUsuarioPorId);
+router.delete("/eliminarUsuarioPorId/:id", authMiddleware.verifyAdmins ,usuario.eliminarUsuarioPorId);
 router.post("/login", usuario.login);
 router.post("/validarToken", usuario.validarToken);
 router.post("/cargarUsuarios", usuario.cargarUsuarios);
 
-router.get("/obtenerConductores", authMiddleware.verifyAdminOrAdminAppOrLector, usuario.obtenerConductores);
-router.get("/obtenerConductoresPorEmpresa/:empresa", authMiddleware.verifyAdminOrAdminAppOrLector, usuario.obtenerConductoresPorEmpresa);
-router.post("/agregarEventos",authMiddleware.verifyAdminOrAdminApp, usuario.agregarEventos);
+router.get("/obtenerConductores", authMiddleware.verifyAdminsOrLector, usuario.obtenerConductores);
+router.get("/obtenerConductoresPorEmpresa/:empresa", authMiddleware.verifyAdminsOrLector, usuario.obtenerConductoresPorEmpresa);
+router.post("/agregarEventos",authMiddleware.verfyAdminsOrEditers, usuario.agregarEventos);
 
 export default router;
