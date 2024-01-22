@@ -13,15 +13,17 @@ const login = async (req, res) => {
     //Quitar espacios en blanco al inicio y al final
     const emailTrim = email.trim();
     const passwordTrim = password.trim();
-
+    
     // Buscar usuario por email
     const findUser = await Usuario.findOne({ email: emailTrim });
     // Si el usuario no existe
     if (!findUser) {
+      console.log("Usuario no encontrado");
       return res.status(400).json({
         message: "Usuario o contraseña incorrectos",
       });
     }
+    
     // Si el usuario existe, verificar la contraseña
     const passwordIsValid = bcrypt.compareSync(passwordTrim, findUser.clave);
     // Si la contraseña no es válida
@@ -141,7 +143,6 @@ const obtenerUsuarios = async (req, res) => {
     } 
     //Si el rol del usuario es "ADMINTRN"
     else if (user.rol === "ADMINTRN") {
-      console.log("ADMINTRN");
       roles = ["LECTORTRN", "TRNEDITOR"]; 
       empresasPermitidas = ["TRN"];
     }  
@@ -377,7 +378,6 @@ const actualizarUsuarioPorId = async (req, res) => {
       nombreCompleto,
       rut,
       email,
-      clave,
       rol,
       empresa,
       cambioClave,
@@ -430,7 +430,7 @@ const actualizarUsuarioPorId = async (req, res) => {
           nombreCompleto: nombreCompleto,
           rut: rut,
           email: email,
-          clave: bcrypt.hashSync(clave, 10),
+          // clave: bcrypt.hashSync(clave, 10),
           rol: rol,
         },
         { new: true }
