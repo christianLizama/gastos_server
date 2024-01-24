@@ -23,4 +23,7 @@ router.get("/obtenerConductores", authMiddleware.verifyAdminsOrLector, usuario.o
 router.get("/obtenerConductoresPorEmpresa/:empresa", authMiddleware.verifyAdminsOrLector, usuario.obtenerConductoresPorEmpresa);
 router.post("/agregarEventos",authMiddleware.verfyAdminsOrEditers, usuario.agregarEventos);
 
+router.get("/obtenerUsuarioApiExterna", authMiddleware.verifyAdmins ,usuario.obtenerUsuarioDesdeApiExterna);
+
+
 export default router;

@@ -13,7 +13,7 @@ const login = async (req, res) => {
     //Quitar espacios en blanco al inicio y al final
     const emailTrim = email.trim();
     const passwordTrim = password.trim();
-    
+
     // Buscar usuario por email
     const findUser = await Usuario.findOne({ email: emailTrim });
     // Si el usuario no existe
@@ -23,7 +23,7 @@ const login = async (req, res) => {
         message: "Usuario o contraseña incorrectos",
       });
     }
-    
+
     // Si el usuario existe, verificar la contraseña
     const passwordIsValid = bcrypt.compareSync(passwordTrim, findUser.clave);
     // Si la contraseña no es válida
@@ -134,18 +134,28 @@ const obtenerUsuarios = async (req, res) => {
     const user = tokenDecodificado.user;
 
     let empresasPermitidas = [];
-    let roles = []
+    let roles = [];
     //Si el rol del usuario es "ADMINAPP"
     if (user.rol === "ADMINAPP") {
-       // Obtener los usuarios de los roles "ADMIN", "LECTOR", "CONDUCTOR", "TRNEDITOR" "TIREDITOR" con paginación
-      roles = ["ADMIN","ADMINTRN","ADMINTIR","LECTOR","LECTORTRN", "LECTORTIR", "EDITOR","TRNEDITOR","TIREDITOR"];
+      // Obtener los usuarios de los roles "ADMIN", "LECTOR", "CONDUCTOR", "TRNEDITOR" "TIREDITOR" con paginación
+      roles = [
+        "ADMIN",
+        "ADMINTRN",
+        "ADMINTIR",
+        "LECTOR",
+        "LECTORTRN",
+        "LECTORTIR",
+        "EDITOR",
+        "TRNEDITOR",
+        "TIREDITOR",
+      ];
       empresasPermitidas = ["TRN", "TIR"];
-    } 
+    }
     //Si el rol del usuario es "ADMINTRN"
     else if (user.rol === "ADMINTRN") {
-      roles = ["LECTORTRN", "TRNEDITOR"]; 
+      roles = ["LECTORTRN", "TRNEDITOR"];
       empresasPermitidas = ["TRN"];
-    }  
+    }
 
     //Si el rol del usuario es "ADMINTIR"
     else if (user.rol === "ADMINTIR") {
@@ -155,7 +165,16 @@ const obtenerUsuarios = async (req, res) => {
 
     //Si el rol del usuario es ADMIN
     else if (user.rol === "ADMIN") {
-      roles = ["ADMINTRN","ADMINTIR","LECTOR","LECTORTRN", "LECTORTIR", "EDITOR","TRNEDITOR","TIREDITOR"];
+      roles = [
+        "ADMINTRN",
+        "ADMINTIR",
+        "LECTOR",
+        "LECTORTRN",
+        "LECTORTIR",
+        "EDITOR",
+        "TRNEDITOR",
+        "TIREDITOR",
+      ];
       empresasPermitidas = ["TRN", "TIR"];
     }
 
@@ -163,7 +182,6 @@ const obtenerUsuarios = async (req, res) => {
     if (empresasPermitidas.length > 0) {
       searchQuery.empresa = { $in: empresasPermitidas };
     }
-
 
     const usuarios = await Usuario.paginate(
       { rol: { $in: roles }, ...searchQuery },
@@ -296,7 +314,7 @@ const obtenerConductores = async (req, res) => {
         valor = "V";
       } else if (evento.nombre === "licencia") {
         valor = "L";
-      } else if (evento.nombre === "mediotrabajo"){
+      } else if (evento.nombre === "mediotrabajo") {
         valor = "MT";
       }
 
@@ -374,15 +392,8 @@ const obtenerUsuarioPorId = async (req, res) => {
 const actualizarUsuarioPorId = async (req, res) => {
   try {
     const { id } = req.params;
-    const {
-      nombreCompleto,
-      rut,
-      email,
-      rol,
-      empresa,
-      cambioClave,
-      newClave,
-    } = req.body;
+    const { nombreCompleto, rut, email, rol, empresa, cambioClave, newClave } =
+      req.body;
 
     //Verificar que los campos obligatorios no estén vacíos
     if (!nombreCompleto || !rut || !email || !rol || !empresa) {
@@ -695,10 +706,10 @@ const agregarEventos = async (req, res) => {
         valor = "V";
       } else if (evento.nombre === "licencia") {
         valor = "L";
-      } else if (evento.nombre === "mediotrabajo"){
+      } else if (evento.nombre === "mediotrabajo") {
         valor = "MT";
       }
-      
+
       const event = {
         nombre: evento.nombre,
         tipo: evento.tipo,
@@ -721,6 +732,87 @@ const agregarEventos = async (req, res) => {
   }
 };
 
+const obtenerUsuarioDesdeApiExterna = async (req, res) => {
+  try {
+    const { rut, empresa } = req.query;
+    // console.log("Obteniendo usuario desde api externa");
+
+    // console.log("Rut:", rut);
+    // console.log("Empresa:", empresa);
+
+    // Verificar que los campos obligatorios no estén vacíos
+    if (!rut || !empresa) {
+      return res.status(400).json({
+        message: "Todos los campos son obligatorios",
+        data: {},
+      });
+    }
+
+    // Verificar que el rut tenga puntos o guión
+    const hasDotsOrDash = /[.-]/.test(rut);
+
+    if (hasDotsOrDash) {
+      return res.status(400).json({
+        message: "El RUT no puede contener puntos ni guiones",
+        data: {},
+      });
+    }
+
+    // Autenticación para obtener el token
+    const urlDestino = process.env.URL_API_USERS;
+    const urlAutenticar = urlDestino + "Autenticar";
+    const usuario = process.env.USUARIO;
+    const contrasena = process.env.CONTRASENA;
+    const bodyAutenticar = { usuario, contrasena };
+    const responseAutenticar = await axios.post(urlAutenticar, bodyAutenticar);
+    const token = responseAutenticar.data.token;
+
+    // Llamada a la API externa con el token obtenido
+    const url = urlDestino + "auditeris/getemployee";
+    let empresaRut = "";
+    if (empresa === "TRN") {
+      empresaRut = process.env.RUT_TRN;
+    } else if (empresa === "TIR") {
+      empresaRut = process.env.RUT_TIR;
+    }
+
+    const headers = {
+      Authorization: token,
+      "Content-Type": "application/json",
+    };
+    const bodyAPI = {
+      rut_empresa: empresaRut,
+      movimientos_personal: "S",
+      rut_trabajador: rut,
+    };
+    const responseAPI = await axios.get(url, {
+      headers: headers,
+      data: bodyAPI,
+    });
+
+    if (responseAPI.data.result[0]) {
+      let usuario = responseAPI.data.result[0].ficha;
+      //Agregar apartado empresa en el objeto usuario
+      usuario.empresa = empresa;
+      res.status(200).json({
+        message: "Usuario obtenido correctamente",
+        data: usuario,
+        userFound: true,
+      });
+    } else {
+      res.status(200).json({
+        message: "Usuario no encontrado",
+        data: {
+          userFound: false,
+        },
+      });
+    }
+  } catch (error) {
+    console.error("Error:", error.message);
+    res.status(500).json({ error: "Error en la solicitud" });
+  }
+};
+
 export default {
   login,
   registrarUsuario,
@@ -733,4 +825,5 @@ export default {
   obtenerConductores,
   obtenerConductoresPorEmpresa,
   agregarEventos,
+  obtenerUsuarioDesdeApiExterna,
 };
