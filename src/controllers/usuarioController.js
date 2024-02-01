@@ -891,11 +891,11 @@ const contarEventosEmpresa = async (req, res) => {
 
     // Añadir encabezados al archivo Excel
     ws.cell(1, 1).string("Fecha de Inicio");
-    ws.cell(1, 2).string(fechaIni.toLocaleDateString());
+    ws.cell(1, 2).string(fechaIni.toLocaleDateString("es-CL"));
     ws.cell(2, 1).string("Fecha de Termino");
-    ws.cell(2, 2).string(fechaFinal.toLocaleDateString());
+    ws.cell(2, 2).string(fechaFinal.toLocaleDateString("es-CL"));
     ws.cell(3,1).string("Fecha informe");
-    ws.cell(3,2).string(new Date().toLocaleString());
+    ws.cell(3,2).string(new Date().toLocaleString("es-CL"));
     ws.cell(4,1).string("Empresa");
     ws.cell(4,2).string(empresa);
     ws.cell(5,1).string("Total Trabajadores");
