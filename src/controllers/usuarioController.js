@@ -830,7 +830,7 @@ const contarEventosEmpresa = async (req, res) => {
     const fechaFinal = new Date(fechaTermino.replace(/-/g, "/"));
     
     // Obtener usuarios de la empresa
-    const usuarios = await Usuario.find({ empresa: empresa }).sort({ nombreCompleto: 1 });
+    const usuarios = await Usuario.find({ empresa: empresa, rol: "CONDUCTOR" }).sort({ nombreCompleto: 1 });
 
     // Crear un array para almacenar usuarios con sus eventos
     const usuariosConEventos = [];
