@@ -5,6 +5,9 @@ import bcrypt from "bcrypt";
 import axios from "axios";
 import removeAccents from "remove-accents";
 import auth from "../middlewares/auth.js";
+import excel from "excel4node";
+import path from 'path';
+import fs from 'fs';
 
 //Función para iniciar sesión de un usuario
 const login = async (req, res) => {
@@ -400,7 +403,7 @@ const actualizarUsuarioPorId = async (req, res) => {
     const { id } = req.params;
     const { nombreCompleto, rut, email, rol, empresa, cambioClave, newClave } =
       req.body;
-    
+
     //Verificar que los campos obligatorios no estén vacíos
     if (!nombreCompleto || !rut || !email || !rol || !empresa) {
       return res.status(400).json({
@@ -819,11 +822,129 @@ const obtenerUsuarioDesdeApiExterna = async (req, res) => {
   }
 };
 
+const contarEventosEmpresa = async (req, res) => {
+  try {
+    const { empresa, fechaInicio, fechaTermino } = req.query;
+    
+    const fechaIni = new Date(fechaInicio.replace(/-/g, "/"));
+    const fechaFinal = new Date(fechaTermino.replace(/-/g, "/"));
+    
+    // Obtener usuarios de la empresa
+    const usuarios = await Usuario.find({ empresa: empresa }).sort({ nombreCompleto: 1 });
+
+    // Crear un array para almacenar usuarios con sus eventos
+    const usuariosConEventos = [];
+
+    // Iterar sobre la lista de usuarios
+    for (const usuario of usuarios) {
+      // Buscar eventos para el usuario actual
+      const eventosUsuario = await Evento.find({
+        user: usuario._id,
+        fecha: { $gte: fechaIni, $lte: fechaFinal },
+      });
+
+      //contar eventos de nombre "ausentismo"
+      const ausentismo = eventosUsuario.filter(
+        (evento) => evento.nombre === "ausentismo"
+      ).length;
+      //contar eventos de nombre "descanso"
+      const descanso = eventosUsuario.filter(
+        (evento) => evento.nombre === "descanso"
+      ).length;
+      //contar eventos de nombre "vacacion"
+      const vacacion = eventosUsuario.filter(
+        (evento) => evento.nombre === "vacacion"
+      ).length;
+      //contar eventos de nombre "licencia"
+      const licencia = eventosUsuario.filter(
+        (evento) => evento.nombre === "licencia"
+      ).length;
+      //contar eventos de nombre "mediotrabajo"
+      const mediotrabajo = eventosUsuario.filter(
+        (evento) => evento.nombre === "mediotrabajo"
+      ).length;
+
+      //Obtener la cantidad de días entre las fechas de inicio y fin
+      const dias = obtenerDiferenciaDias(fechaIni, fechaFinal);
+      const diasTrabajados = dias - ausentismo - descanso - vacacion - licencia;
+
+      // Crear un objeto que contenga la información del usuario y sus eventos
+      const usuarioConEventos = {
+        usuario: usuario,
+        eventos: {
+          ausentismo: ausentismo,
+          descanso: descanso,
+          vacacion: vacacion,
+          licencia: licencia,
+          mediotrabajo: mediotrabajo,
+          diasTrabajados: diasTrabajados,
+        },
+      };
+
+      // Agregar el objeto al array
+      usuariosConEventos.push(usuarioConEventos);
+    }
+
+    // Crear un nuevo libro de Excel
+    const wb = new excel.Workbook();
+    const ws = wb.addWorksheet("Usuarios y Eventos");
+
+    // Añadir encabezados al archivo Excel
+    ws.cell(1, 1).string("Fecha de Inicio");
+    ws.cell(1, 2).string(fechaIni.toLocaleDateString());
+    ws.cell(2, 1).string("Fecha de Termino");
+    ws.cell(2, 2).string(fechaFinal.toLocaleDateString());
+    ws.cell(3,1).string("Fecha informe");
+    ws.cell(3,2).string(new Date().toLocaleString());
+    ws.cell(4,1).string("Empresa");
+    ws.cell(4,2).string(empresa);
+    ws.cell(5,1).string("Total Trabajadores");
+    ws.cell(5,2).number(usuariosConEventos.length);
+    // Añadir encabezados al archivo Excel
+    ws.cell(7, 1).string("Nombre Conductor");
+    ws.cell(7, 2).string("Rut");
+    ws.cell(7, 3).string("Ausentismo");
+    ws.cell(7, 4).string("Descanso");
+    ws.cell(7, 5).string("Vacación");
+    ws.cell(7, 6).string("Licencia");
+    ws.cell(7, 7).string("Medio Trabajo");
+    ws.cell(7, 8).string("Días Trabajados");
+
+    // Fila actual en el archivo Excel
+    let currentRow = 8;
+
+    // Iterar sobre la lista de usuariosConEventos
+    for (const usuarioConEventos of usuariosConEventos) {
+      const { usuario, eventos } = usuarioConEventos;
+
+      // Escribir la información del usuario en el archivo Excel
+      ws.cell(currentRow, 1).string(usuario.nombreCompleto);
+      ws.cell(currentRow, 2).string(usuario.rut);
+      ws.cell(currentRow, 3).number(eventos.ausentismo);
+      ws.cell(currentRow, 4).number(eventos.descanso);
+      ws.cell(currentRow, 5).number(eventos.vacacion);
+      ws.cell(currentRow, 6).number(eventos.licencia);
+      ws.cell(currentRow, 7).number(eventos.mediotrabajo);
+      ws.cell(currentRow, 8).number(eventos.diasTrabajados);
+
+      // Incrementar la fila actual
+      currentRow++;
+    }
+
+    // Guardar el archivo Excel en un archivo
+    const excelFilePath = path.join(new URL('usuarios_y_eventos.xlsx', import.meta.url).pathname);
+    wb.write(excelFilePath,res);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+};
+
 const contarEventosUsuario = async (req, res) => {
   try {
+    const { rut, fechaInicio, fechaTermino } = req.query;
 
-    const {rut, fechaInicio, fechaTermino} = req.query;
-    
     //Buscar al usuario por su rut
     const usuario = await Usuario.findOne({ rut: rut });
 
@@ -834,10 +955,10 @@ const contarEventosUsuario = async (req, res) => {
         data: {},
       });
     }
-    
-    const fechaIni= new Date(fechaInicio)
-    const fechaFinal = new Date(fechaTermino)
-    
+
+    const fechaIni = new Date(fechaInicio);
+    const fechaFinal = new Date(fechaTermino);
+
     //Obtenemos todos los eventos del usuario entre fechas
     const eventos = await Evento.find({
       user: usuario._id,
@@ -845,23 +966,34 @@ const contarEventosUsuario = async (req, res) => {
     });
 
     //Contamos los eventos de nombre "ausentismo"
-    const ausentismo = eventos.filter(evento => evento.nombre === "ausentismo").length;
+    const ausentismo = eventos.filter(
+      (evento) => evento.nombre === "ausentismo"
+    ).length;
 
     //Contamos los eventos de nombre "descanso"
-    const descanso = eventos.filter(evento => evento.nombre === "descanso").length;
+    const descanso = eventos.filter(
+      (evento) => evento.nombre === "descanso"
+    ).length;
 
     //Contamos los eventos de nombre "vacacion"
-    const vacacion = eventos.filter(evento => evento.nombre === "vacacion").length;
+    const vacacion = eventos.filter(
+      (evento) => evento.nombre === "vacacion"
+    ).length;
 
     //Contamos los eventos de nombre "licencia"
-    const licencia = eventos.filter(evento => evento.nombre === "licencia").length;
+    const licencia = eventos.filter(
+      (evento) => evento.nombre === "licencia"
+    ).length;
 
     //Contamos los eventos de nombre "mediotrabajo"
-    const mediotrabajo = eventos.filter(evento => evento.nombre === "mediotrabajo").length; 
+    const mediotrabajo = eventos.filter(
+      (evento) => evento.nombre === "mediotrabajo"
+    ).length;
 
     //Obtenemos la cantidad de días entre las fechas de inicio y fin
-    const dias = obtenerDiferenciaDias(fechaIni, fechaFinal);  
-    const diasTrabajdos = dias - ausentismo - descanso - vacacion - licencia - mediotrabajo;
+    const dias = obtenerDiferenciaDias(fechaIni, fechaFinal);
+    const diasTrabajdos =
+      dias - ausentismo - descanso - vacacion - licencia - mediotrabajo;
 
     res.status(200).json({
       message: "Eventos contados correctamente",
@@ -871,16 +1003,14 @@ const contarEventosUsuario = async (req, res) => {
         vacacion: vacacion,
         licencia: licencia,
         mediotrabajo: mediotrabajo,
-        diasTrabajados: diasTrabajdos
+        diasTrabajados: diasTrabajdos,
       },
     });
-
-    
   } catch (error) {
     console.error("Error:", error.message);
     res.status(500).json({ error: "Error en la solicitud" });
   }
-}  
+};
 
 function obtenerDiferenciaDias(fechaInicio, fechaFin) {
   // Convertir las fechas a objetos Date
@@ -891,7 +1021,7 @@ function obtenerDiferenciaDias(fechaInicio, fechaFin) {
   const diferenciaEnMilisegundos = fin - inicio;
 
   // Convertir la diferencia de milisegundos a días
-  const dias = Math.floor(diferenciaEnMilisegundos / (1000 * 60 * 60 * 24));
+  const dias = Math.floor(diferenciaEnMilisegundos / (1000 * 60 * 60 * 24)) + 1;
 
   return dias;
 }
@@ -909,5 +1039,6 @@ export default {
   obtenerConductoresPorEmpresa,
   agregarEventos,
   obtenerUsuarioDesdeApiExterna,
-  contarEventosUsuario
+  contarEventosUsuario,
+  contarEventosEmpresa,
 };

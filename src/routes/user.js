@@ -25,6 +25,7 @@ router.post("/agregarEventos",authMiddleware.verfyAdminsOrEditers, usuario.agreg
 
 router.get("/obtenerUsuarioApiExterna", authMiddleware.verifyAdmins ,usuario.obtenerUsuarioDesdeApiExterna);
 router.get("/contarEventosUsuario", usuario.contarEventosUsuario);
+router.get("/contarEventosEmpresa", usuario.contarEventosEmpresa);
 
 
 export default router;
