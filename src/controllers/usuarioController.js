@@ -236,10 +236,6 @@ const obtenerConductores = async (req, res) => {
     let fechaInicio;
     let fechaFin;
 
-    // console.log("Mes:", mes);
-    // console.log("Año:", annio);
-    // console.log("Empresa:",empresa)
-
     const year = parseInt(annio, 10); // Convirtiendo strings a enteros
     const month = parseInt(mes, 10);
 
@@ -843,6 +839,47 @@ const contarEventosEmpresa = async (req, res) => {
         fecha: { $gte: fechaIni, $lte: fechaFinal },
       });
 
+      const fechaIngreso = convertirFecha(usuario.fechaIngreso);
+      const fechaTermino = convertirFecha(usuario.fechaTermino);
+
+      let diasAntesContrato = 0;
+      // Conteo de días antes del contrato
+      // Verificar si la fecha de ingreso está dentro del mes o es posterior a la fecha de inicio
+      if (fechaIngreso >= fechaIni && fechaIngreso <= fechaFinal) {
+        let fechaActual = new Date(fechaInicio.replace(/-/g, "/"));
+        while (fechaActual < fechaIngreso) {
+          fechaActual.setDate(fechaActual.getDate() + 1);
+          diasAntesContrato++;
+        }
+      }
+      // Si la fecha de ingreso es anterior a la fecha de inicio
+      else if (fechaIngreso > fechaIni) {
+        let fechaActual = new Date(fechaInicio.replace(/-/g, "/"));
+        while (fechaActual <= fechaFinal) {
+          fechaActual.setDate(fechaActual.getDate() + 1);
+          diasAntesContrato++;
+        }
+      }
+
+      let diasDespuesTermino = 0;
+
+      // Conteo de días después del termino de contrato
+      // Verificar si la fecha de termino está dentro del mes o es anterior a la fecha de inicio
+      if (fechaTermino >= fechaIni && fechaTermino <= fechaFinal) {
+        let fechaActual = fechaTermino.replace(/-/g, "/");
+        fechaActual.setDate(fechaActual.getDate() + 1); // Avanzar un día
+        while (fechaActual <= fechaFinal) {
+          fechaActual.setDate(fechaActual.getDate() + 1);
+          diasDespuesTermino++;
+        }
+      } else if (fechaTermino < fechaIni) {
+        let fechaActual = Date(fechaInicio.replace(/-/g, "/"));
+        while (fechaActual <= fechaFinal) {
+          fechaActual.setDate(fechaActual.getDate() + 1);
+          diasDespuesTermino++;
+        }
+      }
+      
       //contar eventos de nombre "ausentismo"
       const ausentismo = eventosUsuario.filter(
         (evento) => evento.nombre === "ausentismo"
@@ -866,7 +903,7 @@ const contarEventosEmpresa = async (req, res) => {
 
       //Obtener la cantidad de días entre las fechas de inicio y fin
       const dias = obtenerDiferenciaDias(fechaIni, fechaFinal);
-      const diasTrabajados = dias - ausentismo - descanso - vacacion - licencia;
+      const diasTrabajados = dias - ausentismo - descanso - vacacion - licencia - diasAntesContrato - diasDespuesTermino;
 
       // Crear un objeto que contenga la información del usuario y sus eventos
       const usuarioConEventos = {
@@ -877,6 +914,8 @@ const contarEventosEmpresa = async (req, res) => {
           vacacion: vacacion,
           licencia: licencia,
           mediotrabajo: mediotrabajo,
+          diasInicioContrato: diasAntesContrato,
+          diasTerminoContrato: diasDespuesTermino,
           diasTrabajados: diasTrabajados,
         },
       };
@@ -892,26 +931,34 @@ const contarEventosEmpresa = async (req, res) => {
     // Añadir encabezados al archivo Excel
     ws.cell(1, 1).string("Fecha de Inicio");
     ws.cell(1, 2).string(fechaIni.toLocaleDateString("es-CL"));
+
     ws.cell(2, 1).string("Fecha de Termino");
     ws.cell(2, 2).string(fechaFinal.toLocaleDateString("es-CL"));
-    ws.cell(3,1).string("Fecha informe");
-    ws.cell(3,2).string(new Date().toLocaleString("es-CL"));
-    ws.cell(4,1).string("Empresa");
-    ws.cell(4,2).string(empresa);
-    ws.cell(5,1).string("Total Trabajadores");
-    ws.cell(5,2).number(usuariosConEventos.length);
+
+    const dias = obtenerDiferenciaDias(fechaIni, fechaFinal);
+    ws.cell(3,1).string("Cantidad de días del mes");
+    ws.cell(3,2).number(dias);
+
+    ws.cell(4,1).string("Fecha Informe");
+    ws.cell(4,2).string(new Date().toLocaleString("es-CL"));
+    
+    ws.cell(5,1).string("Empresa");
+    ws.cell(5,2).string(empresa);
+    
+    ws.cell(6,1).string("Total Trabajadores");
+    ws.cell(6,2).number(usuariosConEventos.length);
     // Añadir encabezados al archivo Excel
-    ws.cell(7, 1).string("Nombre Conductor");
-    ws.cell(7, 2).string("Rut");
-    ws.cell(7, 3).string("Ausentismo");
-    ws.cell(7, 4).string("Descanso");
-    ws.cell(7, 5).string("Vacación");
-    ws.cell(7, 6).string("Licencia");
-    ws.cell(7, 7).string("Medio Trabajo");
-    ws.cell(7, 8).string("Días Trabajados");
+    ws.cell(8, 1).string("Nombre Conductor");
+    ws.cell(8, 2).string("Rut");
+    ws.cell(8, 3).string("Ausentismo");
+    ws.cell(8, 4).string("Descanso");
+    ws.cell(8, 5).string("Vacación");
+    ws.cell(8, 6).string("Licencia");
+    ws.cell(8, 7).string("Medio Trabajo");
+    ws.cell(8, 8).string("Días Trabajados");
 
     // Fila actual en el archivo Excel
-    let currentRow = 8;
+    let currentRow = 9;
 
     // Iterar sobre la lista de usuariosConEventos
     for (const usuarioConEventos of usuariosConEventos) {
@@ -992,7 +1039,7 @@ const contarEventosUsuario = async (req, res) => {
 
     //Obtenemos la cantidad de días entre las fechas de inicio y fin
     const dias = obtenerDiferenciaDias(fechaIni, fechaFinal);
-    const diasTrabajdos =
+    const diasTrabajados =
       dias - ausentismo - descanso - vacacion - licencia - mediotrabajo;
 
     res.status(200).json({
@@ -1003,7 +1050,7 @@ const contarEventosUsuario = async (req, res) => {
         vacacion: vacacion,
         licencia: licencia,
         mediotrabajo: mediotrabajo,
-        diasTrabajados: diasTrabajdos,
+        diasTrabajados: diasTrabajados,
       },
     });
   } catch (error) {
