@@ -11,6 +11,7 @@ router.get("/", function (req, res, next) {
 router.post("/guardarSolicitud", solicitud.registrarSolicitud);
 router.get("/obtenerSolicitudes", solicitud.obtenerSolicitudes);
 router.get("/obtenerSolicitudPorId/:id", solicitud.obtenerSolicitudPorId);
+router.get("/obtenerContenedoresSolicitudes", contenedorSolicitud.obtenerContenedoresSolicitudes);
 router.post("/guardarContenedorSolicitudes", contenedorSolicitud.registrarContenedorSolicitudes);
 
 export default router;

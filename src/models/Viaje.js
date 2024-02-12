@@ -1,6 +1,11 @@
 import mongoose from "mongoose";
 const Schema = mongoose.Schema;
 
+let estados = {
+  values: ["NOREALIZADO","REALIZADO"],
+  message: "{VALUE} no es un rol válido",
+};
+
 const ViajeSchema = new Schema({
   clienteID: {
     type: String,
@@ -26,6 +31,10 @@ const ViajeSchema = new Schema({
     type: Date,
     required: [true, "La fecha es necesaria"],
   },
+  idEmpleado:{
+    type: String,
+    default: ""
+  },
   conductor: {
     type: Schema.Types.ObjectId,
     ref: "Usuario",
@@ -33,11 +42,11 @@ const ViajeSchema = new Schema({
   },
   centroDeCosto: {
     type: String,
-    required: [true, "El tipo de viaje es necesario"],
   },
   estado: {
     type: String,
     required: [true, "El estado es necesario"],
+    enum: estados,
   },
   
 });

@@ -1,6 +1,11 @@
 import mongoose from "mongoose";
 const Schema = mongoose.Schema;
 
+let estados = {
+    values: ["PENDIENTE","APROBADA","RECHZADA","CORREGIR","PAGADA"],
+    message: "{VALUE} no es un rol válido",
+  };
+
 const SolicitudSchema = new Schema({
     conductor:{
         type: Schema.Types.ObjectId,
@@ -29,7 +34,8 @@ const SolicitudSchema = new Schema({
     estado:{
         type: String,
         required: [true, "El estado es necesario"],
-        default: "Pendiente",
+        default: "PENDIENTE",
+        enum: estados,
     },
     aprobadoPor:{
         type: Schema.Types.ObjectId,
@@ -50,7 +56,7 @@ const SolicitudSchema = new Schema({
             type: String,
             required: [true, "El tipo de monto es necesario"],
         },
-        numero: {
+        monto: {
             type: Number,
             required: [true, "El número de monto es necesario"],
         },
@@ -58,6 +64,15 @@ const SolicitudSchema = new Schema({
     lineaSolicitud: {
         type: String,
         required: [true, "La linea de solicitud es necesaria"],
+    },
+    tienePedido: {
+        type: Boolean,
+        required: [true, "El pedido es necesario"],
+        default: false
+    },
+    comentarios: {
+        type: String,
+        default: ""
     },
 
 });
