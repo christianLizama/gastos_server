@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 const Schema = mongoose.Schema;
 
 let estados = {
-    values: ["PENDIENTE","APROBADA","RECHZADA","CORREGIR","PAGADA"],
+    values: ["PENDIENTE","APROBADA","RECHAZADA","CORREGIR","PAGADA"],
     message: "{VALUE} no es un rol válido",
   };
 

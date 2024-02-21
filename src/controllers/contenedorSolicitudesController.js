@@ -89,7 +89,7 @@ const registrarContenedorSolicitudes = async (req, res) => {
     let idsConductores = [];
     let viajes = [];
     let empresa = "";
-    let index = 0;
+    let index = 1;
     for (let i = 0; i < contenedor.length; i++) {
       let solicitud = contenedor[i];
       
