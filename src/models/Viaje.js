@@ -23,17 +23,9 @@ const ViajeSchema = new Schema({
     type: String,
     required: [true, "El destino es necesario"],
   },
-  pais : {
-    type: String,
-    required: [true, "El pais es necesario"],
-  },
   fecha: {
     type: Date,
     required: [true, "La fecha es necesaria"],
-  },
-  idEmpleado:{
-    type: String,
-    default: ""
   },
   conductor: {
     type: Schema.Types.ObjectId,
