@@ -827,7 +827,7 @@ const contarEventosEmpresa = async (req, res) => {
     
     // Obtener usuarios de la empresa
     const usuarios = await Usuario.find({ empresa: empresa, rol: "CONDUCTOR" }).sort({ nombreCompleto: 1 });
-
+    
     // Crear un array para almacenar usuarios con sus eventos
     const usuariosConEventos = [];
 
@@ -866,7 +866,9 @@ const contarEventosEmpresa = async (req, res) => {
       // Conteo de días después del termino de contrato
       // Verificar si la fecha de termino está dentro del mes o es anterior a la fecha de inicio
       if (fechaTermino >= fechaIni && fechaTermino <= fechaFinal) {
-        let fechaActual = fechaTermino.replace(/-/g, "/");
+        let fechaAgregar = fechaTermino.toISOString().split("T")[0];
+        let fechaActual = new Date(fechaAgregar.replace(/-/g, "/"));
+        // let fechaActual = fechaTermino.replace(/-/g, "/");
         fechaActual.setDate(fechaActual.getDate() + 1); // Avanzar un día
         while (fechaActual <= fechaFinal) {
           fechaActual.setDate(fechaActual.getDate() + 1);
