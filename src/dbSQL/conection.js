@@ -5,7 +5,7 @@ const configDB1 = {
   user: process.env.MYSQL_USER,
   password: process.env.MYSQL_PASSWORD,
   server: process.env.MYSQL_HOST,
-  database: 'produccion_transportes_rio_cautin_ltda_1',
+  database: process.env.DBTRN,//nacional
   options: {
     encrypt: false, // Establecer a true si estás utilizando conexiones seguras (SSL)
   },
@@ -16,7 +16,7 @@ const configDB2 = {
   user: process.env.MYSQL_USER,
   password: process.env.MYSQL_PASSWORD,
   server: process.env.MYSQL_HOST,
-  database: 'produccion_transportes_ruiz_ltda_1',
+  database: process.env.DBTIR,//internacional
   options: {
     encrypt: false, // Establecer a true si estás utilizando conexiones seguras (SSL)
   },
